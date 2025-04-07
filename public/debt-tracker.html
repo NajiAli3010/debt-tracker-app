@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Interactive Debt Tracker</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="icon" href="path_to_your_icon.png" type="image/png">
+    <style>
+        /* Your CSS styles here */
+    </style>
+</head>
+<body>
+    <h1>Debt Tracker</h1>
+    
+    <div class="controls">
+        <h3>Add New Person</h3>
+        <input type="text" id="newName" placeholder="Name">
+        <input type="number" id="newAmount" placeholder="Amount">
+        <select id="newStatus">
+            <option value="I owe him">I owe him</option>
+            <option value="He owes me">He owes me</option>
+        </select>
+        <button class="add-person" onclick="addPerson()">Add Person</button>
+    </div>
+
+    <table id="debtTable">
+        <thead>
+            <tr>
+                <th>Name</th>
+                <th>Amount</th>
+                <th>Status</th>
+                <th>Direction</th>
+                <th>Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- Rows will be added here dynamically -->
+        </tbody>
+        <tfoot>
+            <tr class="total-row">
+                <td colspan="3">Total I owe</td>
+                <td id="totalOwe">0</td>
+                <td></td>
+            </tr>
+            <tr class="total-row">
+                <td colspan="3">Total owed to me</td>
+                <td id="totalOwed">0</td>
+                <td></td>
+            </tr>
+            <tr class="total-row">
+                <td colspan="3">Net balance</td>
+                <td id="netBalance">0</td>
+                <td></td>
+            </tr>
+        </tfoot>
+    </table>
+
+    <script>
+        const apiUrl = 'http://localhost:5000/api/people'; // Replace with your deployed API URL
+
+        // Fetch the people data from the server when the page loads
+        window.onload = function() {
+            fetch(apiUrl)
+                .then(response => response.json())
+                .then(data => {
+                    data.forEach(person => addPersonToTable(person));
+                    calculateTotals();
+                });
+        };
+
+        function addPerson() {
+            const name = document.getElementById('newName').value;
+            const amount = document.getElementById('newAmount').value;
+            const status = document.getElementById('newStatus').value;
+
+            if (!name || !amount) {
+                alert('Please enter both name and amount');
+                return;
+            }
+
+            const newPerson = { name, amount, status };
+            
+            fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(newPerson)
+            })
+            .then(response => response.text())
+            .then(() => {
+                addPersonToTable(newPerson);
+                calculateTotals();
+            });
+        }
+
+        function addPersonToTable(person) {
+            const tbody = document.querySelector('#debtTable tbody');
+            const row = document.createElement('tr');
+            
+            row.innerHTML = `
+                <td>${person.name}</td>
+                <td contenteditable="true" class="amount">${person.amount}</td>
+                <td>
+                    <select class="status">
+                        <option value="I owe him" ${person.status === 'I owe him' ? 'selected' : ''}>I owe him</option>
+                        <option value="He owes me" ${person.status === 'He owes me' ? 'selected' : ''}>He owes me</option>
+                    </select>
+                </td>
+                <td class="direction">${person.status === 'I owe him' ? '-1' : '1'}</td>
+                <td><button class="delete-btn" onclick="deletePerson('${person.name}', this)">Delete</button></td>
+            `;
+            
+            tbody.appendChild(row);
+
+            row.querySelector('.amount').addEventListener('input', calculateTotals);
+            row.querySelector('.status').addEventListener('change', function() {
+                const direction = this.closest('tr').querySelector('.direction');
+                direction.textContent = this.value === 'I owe him' ? '-1' : '1';
+                calculateTotals();
+            });
+        }
+
+        function deletePerson(name, button) {
+            fetch(`${apiUrl}/${name}`, { method: 'DELETE' })
+                .then(response => response.text())
+                .then(() => {
+                    const row = button.closest('tr');
+                    row.remove();
+                    calculateTotals();
+                });
+        }
+
+        function calculateTotals() {
+            const amounts = document.querySelectorAll('.amount');
+            const directions = document.querySelectorAll('.direction');
+            let totalOwe = 0;
+            let totalOwed = 0;
+
+            amounts.forEach((amount, index) => {
+                const value = parseFloat(amount.textContent) || 0;
+                const direction = parseFloat(directions[index].textContent);
+                
+                if (direction === -1) {
+                    totalOwe += value;
+                } else {
+                    totalOwed += value;
+                }
+            });
+
+            document.getElementById('totalOwe').textContent = totalOwe;
+            document.getElementById('totalOwed').textContent = totalOwed;
+            document.getElementById('netBalance').textContent = totalOwed - totalOwe;
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,7 @@
+[
+    { "name": "Mamadou", "amount": 9500, "status": "I owe him" },
+    { "name": "Mohamed", "amount": 6000, "status": "He owes me" },
+    { "name": "Mohamed Mosrati", "amount": 1960, "status": "I owe him" },
+    { "name": "Abd Al-Haq", "amount": 20000, "status": "I owe him" },
+    { "name": "Hizam", "amount": 28977, "status": "He owes me" }
+]
