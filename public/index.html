@@ -6,13 +6,153 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="icon" href="path_to_your_icon.png" type="image/png">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" integrity="sha512-uWbFfU0zqY3TZ+NTX6plb/0vjOAcU+LsZBd5ohUqtEJbkeNvh0ubcrp+HDU0U8hLnc43Dh1NPnKvzB54FjLk1w==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+
     <style>
-        /* Your CSS styles here */
+        * {
+            box-sizing: border-box;
+        }
+    
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 1rem;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+        }
+    
+        h1 {
+            text-align: center;
+            margin-bottom: 1rem;
+            font-size: 1.8rem;
+        }
+    
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            max-width: 400px;
+            margin: 0 auto 2rem;
+        }
+    
+        .controls input,
+        .controls select,
+        .controls button {
+            padding: 0.9rem;
+            font-size: 1rem;
+            border: 1px solid #ccc;
+            border-radius: 0.5rem;
+            width: 100%;
+        }
+    
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background-color: var(--table-bg);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+            margin-bottom: 2rem;
+        }
+    
+        th,
+        td {
+            border: 1px solid #ddd;
+            padding: 0.6rem;
+            text-align: center;
+        }
+    
+        th {
+            background-color: var(--table-head);
+        }
+    
+        .total-row td {
+            font-weight: bold;
+            background-color: var(--total-bg);
+        }
+    
+        .delete-btn {
+            background-color: var(--button-bg);
+            color: white;
+            border: none;
+            padding: 0.5rem 0.9rem;
+            border-radius: 0.5rem;
+            cursor: pointer;
+        }
+    
+        .delete-btn:hover {
+            background-color: var(--button-hover);
+        }
+    
+        /* Responsive tweaks */
+        @media (max-width: 600px) {
+            table,
+            thead,
+            tbody,
+            th,
+            td,
+            tr {
+                display: block;
+                width: 100%;
+            }
+    
+            thead {
+                display: none;
+            }
+    
+            tr {
+                margin-bottom: 1.2rem;
+                border: 1px solid #ccc;
+                border-radius: 0.5rem;
+                overflow: hidden;
+                background-color: var(--table-bg);
+            }
+    
+            td {
+                text-align: right;
+                padding-left: 50%;
+                position: relative;
+                padding-top: 1rem;
+                padding-bottom: 1rem;
+            }
+    
+            td::before {
+                content: attr(data-label);
+                position: absolute;
+                left: 1rem;
+                top: 1rem;
+                font-weight: bold;
+                text-align: left;
+            }
+        }
+    
+        /* Theme Colors */
+        :root {
+            --bg-color: #f9f9f9;
+            --text-color: #000;
+            --table-bg: #fff;
+            --table-head: #f0f0f0;
+            --total-bg: #f7f7f7;
+            --button-bg: #ff4d4f;
+            --button-hover: #d9363e;
+        }
+    
+        body.dark {
+            --bg-color: #1e1e1e;
+            --text-color: #f1f1f1;
+            --table-bg: #2e2e2e;
+            --table-head: #3e3e3e;
+            --total-bg: #2c2c2c;
+            --button-bg: #f06292;
+            --button-hover: #ec407a;
+        }
     </style>
+
 </head>
 <body>
+    <button id="themeToggle" style="position: fixed; top: 1rem; right: 1rem; padding: 0.5rem 1rem; z-index: 1000;">
+        Toggle Theme
+    </button>
+
     <h1>Debt Tracker</h1>
-    
     <div class="controls">
         <h3>Add New Person</h3>
         <input type="text" id="newName" placeholder="Name">
@@ -23,6 +163,12 @@
         </select>
         <button class="add-person" onclick="addPerson()">Add Person</button>
     </div>
+    <div style="margin-top: 1rem;">
+        <button onclick="clearAllData()" style="background-color: #ff4d4f; color: white; padding: 0.5rem 1rem; border: none; cursor: pointer;">
+            Reset
+        </button>
+    </div>
+    
 
     <table id="debtTable">
         <thead>
@@ -86,11 +232,12 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(newPerson)
             })
-            .then(response => response.text())
-            .then(() => {
-                addPersonToTable(newPerson);
+            .then(response => response.json())
+            .then(person => {
+                addPersonToTable(person);
                 calculateTotals();
             });
+
         }
 
         function addPersonToTable(person) {
@@ -98,17 +245,18 @@
             const row = document.createElement('tr');
             
             row.innerHTML = `
-                <td>${person.name}</td>
-                <td contenteditable="true" class="amount">${person.amount}</td>
-                <td>
-                    <select class="status">
-                        <option value="I owe him" ${person.status === 'I owe him' ? 'selected' : ''}>I owe him</option>
-                        <option value="He owes me" ${person.status === 'He owes me' ? 'selected' : ''}>He owes me</option>
-                    </select>
-                </td>
-                <td class="direction">${person.status === 'I owe him' ? '-1' : '1'}</td>
-                <td><button class="delete-btn" onclick="deletePerson('${person.name}', this)">Delete</button></td>
-            `;
+    <td data-label="Name">${person.name}</td>
+    <td data-label="Amount" contenteditable="true" class="amount">${person.amount}</td>
+    <td data-label="Status">
+        <select class="status">
+            <option value="I owe him" ${person.status === 'I owe him' ? 'selected' : ''}>I owe him</option>
+            <option value="He owes me" ${person.status === 'He owes me' ? 'selected' : ''}>He owes me</option>
+        </select>
+    </td>
+    <td data-label="Direction" class="direction">${person.status === 'I owe him' ? '-1' : '1'}</td>
+    <td data-label="Action"><button class="delete-btn" onclick="deletePerson('${person.name}', this)">Delete</button></td>
+`;
+
             
             tbody.appendChild(row);
 
@@ -151,6 +299,36 @@
             document.getElementById('totalOwed').textContent = totalOwed;
             document.getElementById('netBalance').textContent = totalOwed - totalOwe;
         }
+
+        function clearAllData() {
+    if (!confirm('Are you sure you want to delete all people?')) return;
+
+    fetch(apiUrl, { method: 'DELETE' })
+        .then(res => res.text())
+        .then(() => {
+            const tbody = document.querySelector('#debtTable tbody');
+            tbody.innerHTML = '';
+            calculateTotals();
+        });
+}
+
+
+
+        const toggleBtn = document.getElementById('themeToggle');
+    const currentTheme = localStorage.getItem('theme');
+
+    if (currentTheme === 'dark') {
+        document.body.classList.add('dark');
+    }
+
+    toggleBtn.addEventListener('click', () => {
+        document.body.classList.toggle('dark');
+        if (document.body.classList.contains('dark')) {
+            localStorage.setItem('theme', 'dark');
+        } else {
+            localStorage.setItem('theme', 'light');
+        }
+    });
     </script>
 </body>
 </html>
