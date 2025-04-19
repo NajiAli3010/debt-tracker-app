@@ -5,8 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <link rel="icon" href="C:\Users\ASUS\desktop\debt-tracker-backend\public\15264040-92c9-44eb-a1a2-70544d203d54.jpg" type="image/jpg">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" integrity="sha512-uWbFfU0zqY3TZ+NTX6plb/0vjOAcU+LsZBd5ohUqtEJbkeNvh0ubcrp+HDU0U8hLnc43Dh1NPnKvzB54FjLk1w==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" integrity="sha512-uWbFfU0zqY3TZ+NTX6plB/0vjOAcU+LsZBd5ohUqtEJbkeNvh0ubcrp+HDU0U8hLnc43Dh1NPnKvzB54FjLk1w==" crossorigin="anonymous" referrerpolicy="no-referrer" />
 
     <style>
         * {
@@ -94,8 +93,10 @@
                 width: 100%;
             }
     
-            thead {
-                display: none;
+            thead tr {
+                position: absolute;
+                top: -9999px;
+                left: -9999px;
             }
     
             tr {
@@ -112,15 +113,41 @@
                 position: relative;
                 padding-top: 1rem;
                 padding-bottom: 1rem;
+                border: none;
+                border-bottom: 1px solid #eee;
             }
     
             td::before {
                 content: attr(data-label);
                 position: absolute;
                 left: 1rem;
-                top: 1rem;
+                top: 50%;
+                transform: translateY(-50%);
                 font-weight: bold;
                 text-align: left;
+            }
+
+            tfoot tr {
+                margin-bottom: 0.5rem;
+            }
+
+            tfoot td {
+                text-align: center;
+                padding-left: 1rem;
+            }
+
+            tfoot td::before {
+                content: '';
+            }
+
+            .total-row td {
+                padding-left: 1rem;
+                text-align: center;
+            }
+
+            .total-row td:nth-child(2) {
+                text-align: right;
+                padding-right: 1rem;
             }
         }
     
@@ -144,15 +171,34 @@
             --button-bg: #f06292;
             --button-hover: #ec407a;
         }
+
+        #status-message {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            text-align: center;
+            display: none;
+        }
+
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+        }
+
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
     </style>
 
 </head>
 <body>
     <button id="themeToggle" style="position: fixed; top: 1rem; right: 1rem; padding: 0.5rem 1rem; z-index: 1000;">
-        Toggle Theme
+        <i class="fas fa-moon"></i>
     </button>
 
     <h1>Debt Tracker</h1>
+    <div id="status-message"></div>
     <div class="controls">
         <h3>Add New Person</h3>
         <input type="text" id="newName" placeholder="Name">
@@ -203,25 +249,65 @@
     </table>
 
     <script>
-        const apiUrl = 'http://localhost:5000/api/people'; // Replace with your deployed API URL
+        // Get the base URL of the current page to determine API URL
+        const baseUrl = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1' 
+            ? 'http://localhost:5000' 
+            : 'https://your-backend-url.com'; // Replace with your deployed backend URL
+        
+        const apiUrl = `${baseUrl}/api/people`;
+        
+        // Show status messages to the user
+        function showMessage(message, type) {
+            const statusElement = document.getElementById('status-message');
+            statusElement.textContent = message;
+            statusElement.className = type;
+            statusElement.style.display = 'block';
+            
+            // Hide the message after 3 seconds
+            setTimeout(() => {
+                statusElement.style.display = 'none';
+            }, 3000);
+        }
 
         // Fetch the people data from the server when the page loads
         window.onload = function() {
+            fetchPeople();
+            updateThemeIcon();
+        };
+        
+        function fetchPeople() {
             fetch(apiUrl)
-                .then(response => response.json())
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
                 .then(data => {
+                    // Clear existing table data
+                    document.querySelector('#debtTable tbody').innerHTML = '';
+                    
+                    // Add each person to the table
                     data.forEach(person => addPersonToTable(person));
                     calculateTotals();
+                })
+                .catch(error => {
+                    console.error('Error fetching data:', error);
+                    showMessage('Failed to load data. Please check your connection.', 'error');
                 });
-        };
+        }
 
         function addPerson() {
-            const name = document.getElementById('newName').value;
-            const amount = document.getElementById('newAmount').value;
-            const status = document.getElementById('newStatus').value;
+            const nameInput = document.getElementById('newName');
+            const amountInput = document.getElementById('newAmount');
+            const statusInput = document.getElementById('newStatus');
+            
+            const name = nameInput.value;
+            const amount = amountInput.value;
+            const status = statusInput.value;
 
             if (!name || !amount) {
-                alert('Please enter both name and amount');
+                showMessage('Please enter both name and amount', 'error');
                 return;
             }
 
@@ -232,12 +318,26 @@
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(newPerson)
             })
-            .then(response => response.json())
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
             .then(person => {
                 addPersonToTable(person);
                 calculateTotals();
+                
+                // Clear input fields after successful addition
+                nameInput.value = '';
+                amountInput.value = '';
+                
+                showMessage('Person added successfully!', 'success');
+            })
+            .catch(error => {
+                console.error('Error adding person:', error);
+                showMessage('Failed to add person. Please try again.', 'error');
             });
-
         }
 
         function addPersonToTable(person) {
@@ -245,18 +345,17 @@
             const row = document.createElement('tr');
             
             row.innerHTML = `
-    <td data-label="Name">${person.name}</td>
-    <td data-label="Amount" contenteditable="true" class="amount">${person.amount}</td>
-    <td data-label="Status">
-        <select class="status">
-            <option value="I owe him" ${person.status === 'I owe him' ? 'selected' : ''}>I owe him</option>
-            <option value="He owes me" ${person.status === 'He owes me' ? 'selected' : ''}>He owes me</option>
-        </select>
-    </td>
-    <td data-label="Direction" class="direction">${person.status === 'I owe him' ? '-1' : '1'}</td>
-    <td data-label="Action"><button class="delete-btn" onclick="deletePerson('${person.name}', this)">Delete</button></td>
-`;
-
+                <td data-label="Name">${person.name}</td>
+                <td data-label="Amount" contenteditable="true" class="amount">${person.amount}</td>
+                <td data-label="Status">
+                    <select class="status">
+                        <option value="I owe him" ${person.status === 'I owe him' ? 'selected' : ''}>I owe him</option>
+                        <option value="He owes me" ${person.status === 'He owes me' ? 'selected' : ''}>He owes me</option>
+                    </select>
+                </td>
+                <td data-label="Direction" class="direction">${person.status === 'I owe him' ? '-1' : '1'}</td>
+                <td data-label="Action"><button class="delete-btn" onclick="deletePerson('${person.name}', this)">Delete</button></td>
+            `;
             
             tbody.appendChild(row);
 
@@ -270,11 +369,21 @@
 
         function deletePerson(name, button) {
             fetch(`${apiUrl}/${name}`, { method: 'DELETE' })
-                .then(response => response.text())
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.text();
+                })
                 .then(() => {
                     const row = button.closest('tr');
                     row.remove();
                     calculateTotals();
+                    showMessage('Person deleted successfully!', 'success');
+                })
+                .catch(error => {
+                    console.error('Error deleting person:', error);
+                    showMessage('Failed to delete person. Please try again.', 'error');
                 });
         }
 
@@ -295,40 +404,55 @@
                 }
             });
 
-            document.getElementById('totalOwe').textContent = totalOwe;
-            document.getElementById('totalOwed').textContent = totalOwed;
-            document.getElementById('netBalance').textContent = totalOwed - totalOwe;
+            document.getElementById('totalOwe').textContent = totalOwe.toFixed(2);
+            document.getElementById('totalOwed').textContent = totalOwed.toFixed(2);
+            document.getElementById('netBalance').textContent = (totalOwed - totalOwe).toFixed(2);
         }
 
         function clearAllData() {
-    if (!confirm('Are you sure you want to delete all people?')) return;
+            if (!confirm('Are you sure you want to delete all people?')) return;
 
-    fetch(apiUrl, { method: 'DELETE' })
-        .then(res => res.text())
-        .then(() => {
-            const tbody = document.querySelector('#debtTable tbody');
-            tbody.innerHTML = '';
-            calculateTotals();
-        });
-}
-
-
+            fetch(apiUrl, { method: 'DELETE' })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.text();
+                })
+                .then(() => {
+                    const tbody = document.querySelector('#debtTable tbody');
+                    tbody.innerHTML = '';
+                    calculateTotals();
+                    showMessage('All data cleared successfully!', 'success');
+                })
+                .catch(error => {
+                    console.error('Error clearing data:', error);
+                    showMessage('Failed to clear data. Please try again.', 'error');
+                });
+        }
 
         const toggleBtn = document.getElementById('themeToggle');
-    const currentTheme = localStorage.getItem('theme');
+        const currentTheme = localStorage.getItem('theme');
 
-    if (currentTheme === 'dark') {
-        document.body.classList.add('dark');
-    }
-
-    toggleBtn.addEventListener('click', () => {
-        document.body.classList.toggle('dark');
-        if (document.body.classList.contains('dark')) {
-            localStorage.setItem('theme', 'dark');
-        } else {
-            localStorage.setItem('theme', 'light');
+        if (currentTheme === 'dark') {
+            document.body.classList.add('dark');
         }
-    });
+
+        function updateThemeIcon() {
+            const isDark = document.body.classList.contains('dark');
+            toggleBtn.innerHTML = isDark ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
+        }
+
+        toggleBtn.addEventListener('click', () => {
+            document.body.classList.toggle('dark');
+            updateThemeIcon();
+            
+            if (document.body.classList.contains('dark')) {
+                localStorage.setItem('theme', 'dark');
+            } else {
+                localStorage.setItem('theme', 'light');
+            }
+        });
     </script>
 </body>
 </html>
